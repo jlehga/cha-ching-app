@@ -12,7 +12,20 @@ const Tab = createBottomTabNavigator();
 export default function App() {
   return (
     <NavigationContainer>
-      <Tab.Navigator screenOptions={{ headerShown: false }}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: '#000',
+            borderTopColor: '#39FF14',
+            borderTopWidth: 1,
+            height: 80, // Add height explicitly
+            position: 'relative', // ← this avoids accidental overlapping
+          },
+          tabBarActiveTintColor: '#39FF14',
+          tabBarInactiveTintColor: '#555',
+        }}
+      >
         <Tab.Screen name="Markets" component={MarketsScreen} />
         <Tab.Screen name="Scores" component={ScoresScreen} />
         <Tab.Screen name="Purchase" component={PurchaseScreen} />
