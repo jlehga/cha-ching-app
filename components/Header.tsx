@@ -8,6 +8,9 @@ const Header = () => {
   const { coinBalance, cashBalance } = useWallet();
   const slideAnim = React.useRef(new Animated.Value(betMode === 'coins' ? 0 : 1)).current;
 
+  // TODO: Replace with actual sign-in state when implemented
+  const isSignedIn = true; // For now, assume signed in
+
   React.useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: betMode === 'coins' ? 0 : 1,
@@ -30,7 +33,9 @@ const Header = () => {
 
   return (
     <View style={styles.header}>
-      <Text style={styles.logo}>{getBalanceText()}</Text>
+      <View style={styles.leftSection}>
+        <Text style={styles.logo}>ChaChing</Text>
+      </View>
       <View style={styles.toggleContainer}>
         <Animated.View 
           style={[
@@ -39,20 +44,20 @@ const Header = () => {
               transform: [{
                 translateX: slideAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0, 60], // Increased to slide all the way
+                  outputRange: [0, 75], // Slide exactly the width of the slider
                 })
               }]
             }
           ]} 
         />
         <TouchableOpacity style={styles.toggleButton} onPress={handleToggle}>
-          <Text style={[styles.toggleText, betMode === 'coins' && styles.activeText]}>
-            💰 Coins
+          <Text style={[styles.toggleText, betMode === 'coins' && styles.activeText, betMode !== 'coins' && styles.inactiveText]}>
+            {betMode === 'coins' ? `🪙 ${coinBalance}` : `${isSignedIn ? '' : '🪙 '}Coins`}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.toggleButton} onPress={handleToggle}>
-          <Text style={[styles.toggleText, betMode === 'cash' && styles.activeText]}>
-            💵 Cash
+          <Text style={[styles.toggleText, betMode === 'cash' && styles.activeText, betMode !== 'cash' && styles.inactiveText]}>
+            {betMode === 'cash' ? `💵 $${cashBalance.toFixed(2)}` : `${isSignedIn ? '' : '💵 '}Cash`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -62,7 +67,7 @@ const Header = () => {
 
 const styles = StyleSheet.create({
   header: {
-    height: 60,
+    height: 70,
     backgroundColor: '#111',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -71,28 +76,32 @@ const styles = StyleSheet.create({
     borderBottomColor: '#39FF14',
     borderBottomWidth: 1,
   },
+  leftSection: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   logo: {
     color: '#39FF14',
-    fontSize: 20,
+    fontSize: 32,
     fontWeight: 'bold',
   },
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: '#222',
-    borderRadius: 20,
-    padding: 2,
+    borderRadius: 26,
+    padding: 0,
     position: 'relative',
-    width: 120,
-    height: 32,
+    width: 150,
+    height: 42,
   },
   slider: {
     position: 'absolute',
-    top: 2,
-    left: 2,
-    width: 56,
-    height: 28,
+    top: 0,
+    left: 0,
+    width: 75,
+    height: 42,
     backgroundColor: '#39FF14',
-    borderRadius: 16,
+    borderRadius: 26,
     zIndex: 1,
   },
   toggleButton: {
@@ -103,11 +112,14 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
   },
   activeText: {
     color: '#000',
+  },
+  inactiveText: {
+    color: '#555',
   },
 });
 

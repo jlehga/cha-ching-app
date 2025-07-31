@@ -14,8 +14,8 @@ export const colors = {
   };
   
   export const fontSize = {
-    sm: 14,
-    md: 18,
-    lg: 24,
+    sm: 16,
+    md: 20,
+    lg: 28,
   };
   

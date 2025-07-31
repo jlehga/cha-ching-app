@@ -8,6 +8,27 @@ export default StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.md,
   },
+  screenContent: {
+    flex: 1,
+    paddingTop: 16, // Consistent spacing from global header
+  },
+  balanceDisplay: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: '#111',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#39FF14',
+    zIndex: 10,
+  },
+  balanceText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   card: {
     backgroundColor: colors.card,
     borderColor: colors.primary,
@@ -19,7 +40,7 @@ export default StyleSheet.create({
   title: {
     fontSize: fontSize.lg,
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: '800',
     marginBottom: spacing.sm,
   },
   text: {
