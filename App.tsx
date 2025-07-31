@@ -6,14 +6,19 @@ import ScoresScreen from './screens/ScoresScreen';
 import PurchaseScreen from './screens/PurchaseScreen';
 import AIHistoryScreen from './screens/AIHistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import { WalletProvider } from './contexts/WalletContext';
+import { BetHistoryProvider } from './contexts/BetHistoryContext';
+
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
+    <WalletProvider>
+      <BetHistoryProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={{
           headerShown: false,
           tabBarStyle: {
             backgroundColor: '#000',
@@ -32,6 +37,8 @@ export default function App() {
         <Tab.Screen name="AI History" component={AIHistoryScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
-    </NavigationContainer>
+      </NavigationContainer>
+      </BetHistoryProvider>
+    </WalletProvider>
   );
 }
