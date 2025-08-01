@@ -74,7 +74,23 @@ export default function ExpandableBetCard({ bet, splitBets = [], onPress }: Expa
         <Text style={styles.marketText}>{bet.market}: {bet.selection}</Text>
         <Text style={styles.oddsText}>Odds: {bet.odds > 0 ? `+${bet.odds}` : bet.odds}</Text>
         
-        {isOriginalBet && bet.totalOriginalAmount ? (
+        {bet.status === 'settled' ? (
+          // For settled bets, show amount bet and result
+          <View style={styles.amountRow}>
+            <Text style={styles.amountText}>
+              Amount Bet: ${bet.amount}
+            </Text>
+            {bet.result && (
+              <Text style={[
+                styles.resultAmountText,
+                { color: bet.result === 'win' ? '#39FF14' : '#FF6B6B' }
+              ]}>
+                {bet.result === 'win' ? `+$${bet.amount * (bet.odds > 0 ? bet.odds / 100 : 1)}` : `-$${bet.amount}`}
+              </Text>
+            )}
+          </View>
+        ) : isOriginalBet && bet.totalOriginalAmount ? (
+          // For open bets, show progress
           <View style={styles.progressContainer}>
             <View style={styles.amountRow}>
               <Text style={styles.amountText}>
@@ -194,6 +210,10 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontSize: 14,
     fontWeight: '600',
+  },
+  resultAmountText: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   progressBar: {
     height: 4,

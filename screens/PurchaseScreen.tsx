@@ -3,9 +3,9 @@ import { View, Text } from 'react-native';
 import Layout from '../components/Layout';
 import GlobalStyles from '../styles/GlobalStyles';
 
-export default function PurchaseScreen() {
+export default function PurchaseScreen({ navigation }) {
   return (
-    <Layout>
+    <Layout navigation={navigation}>
       <View style={GlobalStyles.screenContent}>
         <Text style={GlobalStyles.title}>Purchase</Text>
         <Text style={GlobalStyles.text}>Purchase screen coming soon...</Text>

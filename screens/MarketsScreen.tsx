@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import GlobalStyles from '../styles/GlobalStyles';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useWallet } from '../contexts/WalletContext';
 import { useBetHistory } from '../contexts/BetHistoryContext';
+import { useUser } from '../contexts/UserContext';
 import Layout from '../components/Layout';
 import { useBetMode } from '../contexts/BetModeContext';
 import { MOCK_FIXTURES } from '../data/mock_fixtures';
@@ -11,7 +12,8 @@ import FixtureCard from '../components/FixtureCard';
 import BetSlipModal from '../components/BetSlipModal';
 import LiquidityModal from '../components/LiquidityModal';
 
-export default function MarketsScreen() {
+export default function MarketsScreen({ navigation }) {
+  const { user } = useUser();
   const tabBarHeight = useBottomTabBarHeight();
   const SPORTS = ['NBA', 'NFL', 'MLB', 'UFC', 'NHL'];
   const [selectedSport, setSelectedSport] = useState('NBA');
@@ -29,6 +31,10 @@ export default function MarketsScreen() {
   );
 
   const handleSelectBet = (bet) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to place bets.');
+      return;
+    }
     setSelectedBet(bet);
     setModalVisible(true);
   };
@@ -39,6 +45,10 @@ export default function MarketsScreen() {
   };
 
   const handleShowLiquidity = (fixture) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to view liquidity details.');
+      return;
+    }
     console.log('handleShowLiquidity called with fixture:', fixture);
     setSelectedFixture(fixture);
     setLiquidityModalVisible(true);
@@ -50,6 +60,10 @@ export default function MarketsScreen() {
   };
 
   const handlePlaceBetFromLiquidity = (fixture) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to place bets.');
+      return;
+    }
     setLiquidityModalVisible(false);
     setSelectedFixture(null);
     // Open bet slip with the first available odds from the fixture
@@ -60,7 +74,7 @@ export default function MarketsScreen() {
   };
 
   return (
-    <Layout>
+    <Layout navigation={navigation}>
       <View style={GlobalStyles.screenContent}>
         <Text style={GlobalStyles.title}>Today's Odds</Text>
 

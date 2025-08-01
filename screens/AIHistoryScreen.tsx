@@ -5,7 +5,11 @@ import { useBetHistory } from '../contexts/BetHistoryContext';
 import Layout from '../components/Layout';
 import GlobalStyles from '../styles/GlobalStyles';
 import ExpandableBetCard from '../components/ExpandableBetCard';
+import AIAnalysisModal from '../components/AIAnalysisModal';
 import { useBetMode } from '../contexts/BetModeContext';
+import { useUser } from '../contexts/UserContext';
+import { MOCK_BET_HISTORY, MOCK_AI_ANALYSIS, DEFAULT_AI_PREFERENCES, AIPreferences } from '../data/mock_bet_history';
+import { analyzeBettingHistory } from '../utils/aiAnalysis';
 
 type MainTab = 'open' | 'settled';
 type SubTab = 'matched' | 'unmatched';
@@ -18,29 +22,39 @@ const FilterModal = ({
   tempDateRange,
   tempSortBy,
   tempDirection,
+  tempSelectedSport,
+  tempSelectedResult,
   onClose,
   onDatePickerOpen,
   onSortBySelect,
   onDirectionSelect,
+  onSportSelect,
+  onResultSelect,
   onApply,
   datePickerVisible,
   datePickerType,
   onDatePickerClose,
-  onDateChange
+  onDateChange,
+  activeMainTab
 }: {
   visible: boolean;
   tempDateRange: { start: string; end: string };
   tempSortBy: string;
   tempDirection: string;
+  tempSelectedSport: string;
+  tempSelectedResult: string;
   onClose: () => void;
   onDatePickerOpen: (type: 'start' | 'end') => void;
   onSortBySelect: (option: string) => void;
   onDirectionSelect: (option: string) => void;
+  onSportSelect: (sport: string) => void;
+  onResultSelect: (result: string) => void;
   onApply: () => void;
   datePickerVisible: boolean;
   datePickerType: 'start' | 'end';
   onDatePickerClose: () => void;
   onDateChange: (event: any, date?: Date) => void;
+  activeMainTab: MainTab;
 }) => {
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -107,6 +121,40 @@ const FilterModal = ({
                 </TouchableOpacity>
               ))}
             </View>
+
+            <Text style={styles.filterLabel}>Sport</Text>
+            <View style={styles.sortOptions}>
+              {['All Sports', 'NBA', 'NFL', 'MLB', 'NHL', 'Soccer'].map(sport => (
+                <TouchableOpacity
+                  key={sport}
+                  style={[styles.sortOption, tempSelectedSport === (sport === 'All Sports' ? '' : sport) && styles.sortOptionActive]}
+                  onPress={() => onSportSelect(sport === 'All Sports' ? '' : sport)}
+                >
+                  <Text style={[styles.sortOptionText, tempSelectedSport === (sport === 'All Sports' ? '' : sport) && styles.sortOptionTextActive]}>
+                    {sport}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {activeMainTab === 'settled' && (
+              <>
+                <Text style={styles.filterLabel}>Result</Text>
+                <View style={styles.sortOptions}>
+                  {['All Results', 'Win', 'Lose'].map(result => (
+                    <TouchableOpacity
+                      key={result}
+                      style={[styles.sortOption, tempSelectedResult === (result === 'All Results' ? '' : result.toLowerCase()) && styles.sortOptionActive]}
+                      onPress={() => onResultSelect(result === 'All Results' ? '' : result.toLowerCase())}
+                    >
+                      <Text style={[styles.sortOptionText, tempSelectedResult === (result === 'All Results' ? '' : result.toLowerCase()) && styles.sortOptionTextActive]}>
+                        {result}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
 
           <TouchableOpacity
@@ -148,7 +196,8 @@ const FilterModal = ({
   );
 };
 
-export default function BetHistoryScreen() {
+export default function BetHistoryScreen({ navigation }) {
+  const { user } = useUser();
   const { bets, getBetWithSplits } = useBetHistory();
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('open');
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('matched');
@@ -162,15 +211,125 @@ export default function BetHistoryScreen() {
   const [tempSortBy, setTempSortBy] = useState('date');
   const [tempDirection, setTempDirection] = useState('desc');
   const [tempDateRange, setTempDateRange] = useState({ start: '', end: '' });
+  
+  // Additional filter states
+  const [selectedSport, setSelectedSport] = useState('');
+  const [selectedResult, setSelectedResult] = useState('');
+  const [tempSelectedSport, setTempSelectedSport] = useState('');
+  const [tempSelectedResult, setTempSelectedResult] = useState('');
+  
+  // AI Analysis state
+  const [aiAnalysisVisible, setAiAnalysisVisible] = useState(false);
+  const [aiPreferences, setAiPreferences] = useState<AIPreferences>(DEFAULT_AI_PREFERENCES);
+  const [aiAnalysis, setAiAnalysis] = useState(MOCK_AI_ANALYSIS);
+
+  // Authentication guard
+  if (!user) {
+    return (
+      <Layout navigation={navigation}>
+        <View style={[GlobalStyles.screenContent, styles.authGuardContainer]}>
+          <Text style={styles.authGuardTitle}>Sign In Required</Text>
+          <Text style={styles.authGuardText}>
+            Please sign in to view your betting history and AI analysis.
+          </Text>
+        </View>
+      </Layout>
+    );
+  }
 
   const getFilteredBets = () => {
-    // Filter out split bets from the main list (they'll be shown in expandable cards)
-    const originalBets = bets.filter(bet => !bet.isSplitBet);
-
+    // Combine mock data with real bet context data
+    const mockBets = MOCK_BET_HISTORY.map(bet => ({
+      ...bet,
+      // Add missing fields to match context bet structure
+      matchedAmount: bet.status === 'matched' ? bet.amount : 0,
+      remainingAmount: bet.status === 'matched' ? 0 : bet.amount,
+      isSplitBet: false,
+      splitBets: undefined,
+      originalBetId: undefined,
+      totalOriginalAmount: bet.amount
+    }));
+    
+    // Convert context bets to match our data structure
+    const contextBets = bets.map(bet => ({
+      id: bet.id,
+      sport: bet.sport,
+      event: bet.event,
+      market: bet.market,
+      selection: bet.selection,
+      odds: bet.odds,
+      amount: bet.amount,
+      timestamp: bet.timestamp,
+      status: bet.status,
+      result: bet.result || 'pending',
+      matchedAt: bet.matchedAt,
+      settledAt: bet.settledAt,
+      profit: bet.result === 'win' ? bet.amount * (bet.odds > 0 ? bet.odds / 100 : 1) : bet.result === 'lose' ? -bet.amount : 0,
+      roi: bet.result === 'win' ? (bet.odds > 0 ? bet.odds / 100 : 1) : bet.result === 'lose' ? -1 : 0,
+      confidence: 0.7, // Default confidence for context bets
+      betType: 'spread', // Default bet type
+      timeOfDay: 'evening', // Default time
+      dayOfWeek: 'sunday', // Default day
+      matchedAmount: bet.matchedAmount || 0,
+      remainingAmount: bet.remainingAmount || bet.amount,
+      isSplitBet: bet.isSplitBet || false,
+      splitBets: bet.splitBets,
+      originalBetId: bet.originalBetId,
+      totalOriginalAmount: bet.totalOriginalAmount || bet.amount
+    }));
+    
+    // Combine both datasets, prioritizing context bets (newer)
+    let allBets = [...contextBets, ...mockBets];
+    
+    // Apply date range filter if set
+    if (dateRange.start && dateRange.end) {
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
+      allBets = allBets.filter(bet => {
+        const betDate = new Date(bet.timestamp);
+        return betDate >= startDate && betDate <= endDate;
+      });
+    }
+    
+    // Apply sport filter if set
+    if (selectedSport) {
+      allBets = allBets.filter(bet => bet.sport === selectedSport);
+    }
+    
+    // Apply result filter if set (for settled bets)
+    if (selectedResult && activeMainTab === 'settled') {
+      allBets = allBets.filter(bet => bet.result === selectedResult);
+    }
+    
+    // Apply sorting
+    allBets.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = b.timestamp - a.timestamp;
+          break;
+        case 'amount':
+          comparison = b.amount - a.amount;
+          break;
+        case 'sport':
+          comparison = a.sport.localeCompare(b.sport);
+          break;
+        case 'status':
+          comparison = a.status.localeCompare(b.status);
+          break;
+        default:
+          comparison = b.timestamp - a.timestamp;
+      }
+      
+      return direction === 'desc' ? comparison : -comparison;
+    });
+    
+    // Filter by main tab
     if (activeMainTab === 'open') {
-      return originalBets.filter(bet => bet.status === activeSubTab);
+      return allBets.filter(bet => bet.status === activeSubTab || bet.status === 'matched');
     } else {
-      return originalBets.filter(bet => bet.status === 'settled');
+      return allBets.filter(bet => bet.status === 'settled');
     }
   };
 
@@ -185,7 +344,6 @@ export default function BetHistoryScreen() {
         splitBets={splitBets}
         onPress={() => {
           // Could open a detailed bet view here
-          console.log('Bet pressed:', item.id);
         }}
       />
     );
@@ -217,49 +375,66 @@ export default function BetHistoryScreen() {
   };
 
   const handleSortBySelect = (option: string) => {
-    console.log('handleSortBySelect called with:', option);
     setTempSortBy(option.toLowerCase());
   };
 
   const handleDirectionSelect = (option: string) => {
-    console.log('handleDirectionSelect called with:', option);
     setTempDirection(option === 'Newest First' ? 'desc' : 'asc');
   };
 
+  const handleSportSelect = (sport: string) => {
+    setTempSelectedSport(tempSelectedSport === sport ? '' : sport);
+  };
+
+  const handleResultSelect = (result: string) => {
+    setTempSelectedResult(tempSelectedResult === result ? '' : result);
+  };
+
   const handleApplyFilters = () => {
-    console.log('handleApplyFilters called');
     setSortBy(tempSortBy);
     setDirection(tempDirection);
     setDateRange(tempDateRange);
+    setSelectedSport(tempSelectedSport);
+    setSelectedResult(tempSelectedResult);
     setFilterModalVisible(false);
-    console.log('Filters applied, modal closed');
   };
 
   const handleOpenFilterModal = () => {
-    console.log('handleOpenFilterModal called');
-    console.log('Current sortBy:', sortBy, 'direction:', direction, 'dateRange:', dateRange);
     setTempSortBy(sortBy);
     setTempDirection(direction);
     setTempDateRange(dateRange);
+    setTempSelectedSport(selectedSport);
+    setTempSelectedResult(selectedResult);
     setFilterModalVisible(true);
-    console.log('Filter modal opened');
   };
 
   const handleCloseFilterModal = () => {
-    console.log('handleCloseFilterModal called');
     setFilterModalVisible(false);
   };
 
   const filteredBets = getFilteredBets();
 
-  // Debug state values
-  console.log('Current state - filterModalVisible:', filterModalVisible, 'datePickerVisible:', datePickerVisible, 'datePickerType:', datePickerType);
+
 
   return (
     <>
-      <Layout>
+      <Layout navigation={navigation}>
         <View style={[styles.container, GlobalStyles.screenContent]}>
-          <Text style={GlobalStyles.title}>Bet History</Text>
+          <View style={styles.headerContainer}>
+            <Text style={GlobalStyles.title}>Bet History</Text>
+            <TouchableOpacity
+              style={styles.aiAnalysisButton}
+              onPress={async () => {
+                // Generate real analysis based on current bet history (combined data)
+                const combinedBets = getFilteredBets();
+                const realAnalysis = await analyzeBettingHistory(combinedBets, aiPreferences);
+                setAiAnalysis(realAnalysis);
+                setAiAnalysisVisible(true);
+              }}
+            >
+              <Text style={styles.aiAnalysisButtonText}>🤖 AI Analysis</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Main Tabs */}
           <View style={styles.mainTabContainer}>
@@ -312,6 +487,24 @@ export default function BetHistoryScreen() {
             </View>
           )}
 
+          {/* Filter Button for Recently Settled */}
+          {activeMainTab === 'settled' && (
+            <View style={styles.subTabContainer}>
+              <View style={styles.subTabs}>
+                <View style={styles.subTab}>
+                  <Text style={styles.subTabText}>All Settled</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.filterButton}
+                onPress={handleOpenFilterModal}
+              >
+                <Text style={styles.filterButtonText}>🔍 Filters</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <FlatList
             data={filteredBets}
             keyExtractor={(item) => item.id}
@@ -335,15 +528,28 @@ export default function BetHistoryScreen() {
             tempDateRange={tempDateRange}
             tempSortBy={tempSortBy}
             tempDirection={tempDirection}
+            tempSelectedSport={tempSelectedSport}
+            tempSelectedResult={tempSelectedResult}
             onClose={handleCloseFilterModal}
             onDatePickerOpen={handleDatePickerOpen}
             onSortBySelect={handleSortBySelect}
             onDirectionSelect={handleDirectionSelect}
+            onSportSelect={handleSportSelect}
+            onResultSelect={handleResultSelect}
             onApply={handleApplyFilters}
             datePickerVisible={datePickerVisible}
             datePickerType={datePickerType}
             onDatePickerClose={handleDatePickerClose}
             onDateChange={handleDateChange}
+            activeMainTab={activeMainTab}
+          />
+
+          <AIAnalysisModal
+            visible={aiAnalysisVisible}
+            onClose={() => setAiAnalysisVisible(false)}
+            analysis={aiAnalysis}
+            preferences={aiPreferences}
+            onPreferencesChange={setAiPreferences}
           />
         </View>
       </Layout>
@@ -355,6 +561,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 16,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  aiAnalysisButton: {
+    backgroundColor: '#39FF14',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  aiAnalysisButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   mainTabContainer: {
     flexDirection: 'row',
@@ -665,5 +888,22 @@ const styles = StyleSheet.create({
   androidDatePicker: {
     backgroundColor: '#000',
     color: '#39FF14',
+  },
+  authGuardContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  authGuardTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  authGuardText: {
+    color: '#ccc',
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

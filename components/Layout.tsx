@@ -4,11 +4,11 @@ import { View, SafeAreaView, StyleSheet } from 'react-native';
 import { BetModeProvider } from '../contexts/BetModeContext';
 import Header from './Header';
 
-export default function Layout({ children }) {
+export default function Layout({ children, navigation }) {
   return (
     <BetModeProvider>
       <SafeAreaView style={styles.safeArea}>
-        <Header />
+        <Header navigation={navigation} />
         <View style={styles.container}>{children}</View>
       </SafeAreaView>
     </BetModeProvider>
